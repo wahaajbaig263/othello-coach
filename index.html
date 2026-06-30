@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Othello AI Coach</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #222; color: #fff; text-align: center; }
+        #board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); gap: 2px; width: 496px; margin: 20px auto; background: #111; border: 5px solid #444; }
+        .cell { background: #007A33; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; color: rgba(255,255,255,0.3); position: relative; }
+        .cell:hover { background: #009944; }
+        .piece { width: 48px; height: 48px; border-radius: 50%; display: block; }
+        .black { background: #000; box-shadow: inset 2px 2px 4px rgba(255,255,255,0.4); }
+        .white { background: #fff; box-shadow: inset -2px -2px 4px rgba(0,0,0,0.4); }
+        .hint { width: 16px; height: 16px; border-radius: 50%; background: rgba(255, 235, 59, 0.7); }
+        button { background: #007A33; border: none; color: white; padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 4px; margin: 10px; }
+        button:hover { background: #009944; }
+    </style>
+</head>
+<body>
+    <h1>Othello Coaching Mode</h1>
+    <div>
+        <span id="turn-display">Turn: Black (Player)</span>
+    </div>
+    <div id="board"></div>
+    <button onclick="triggerCoach()">Ask Coach (Depth 13)</button>
+    <p id="coach-output">Click the button for strategic analysis...</p>
+
+    <script src="engine.js"></script>
+    <script>
+        // Start State
+        let boardState = Array(64).fill('-');
+        boardState[27] = 'O'; boardState[28] = 'X';
+        boardState[35] = 'X'; boardState[36] = 'O';
+        let currentPlayer = 1; // 1 = Black ('X'), -1 = White ('O')
+
+        function renderBoard(hintIndex = -1) {
+            const boardDiv = document.getElementById('board');
+            boardDiv.innerHTML = '';
+            for (let i = 0; i < 64; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                
+                if (boardState[i] === 'X') {
+                    const piece = document.createElement('div');
+                    piece.className = 'piece black';
+                    cell.appendChild(piece);
+                } else if (boardState[i] === 'O') {
+                    const piece = document.createElement('div');
+                    piece.className = 'piece white';
+                    cell.appendChild(piece);
+                } else if (i === hintIndex) {
+                    const hint = document.createElement('div');
+                    hint.className = 'hint';
+                    cell.appendChild(hint);
+                }
+
+                // Row/Col labels to identify the cell index easily
+                cell.title = `Square ${i}`;
+                boardDiv.appendChild(cell);
+            }
+            document.getElementById('turn-display').innerText = `Turn: ${currentPlayer === 1 ? 'Black' : 'White'}`;
+        }
+
+        function triggerCoach() {
+            const boardStr = boardState.join('');
+            const startTime = performance.now();
+            
+            // Ask our optimized WASM Module to process depth 13
+            const bestMove = Module.ccall(
+                'get_best_move', 
+                'number', 
+                ['string', 'number', 'number'], 
+                [boardStr, 13, currentPlayer]
+            );
+
+            const endTime = performance.now();
+            const timeTaken = ((endTime - startTime) / 1000).toFixed(3);
+
+            if (bestMove === -1) {
+                document.getElementById('coach-output').innerText = "No moves possible for the current player!";
+            } else {
+                document.getElementById('coach-output').innerText = `Coach Recommendation: Square ${bestMove} (Calculated in ${timeTaken}s)`;
+                renderBoard(bestMove); // Highlights recommended move in Yellow
+            }
+        }
+
+        // Initialize board UI
+        window.onload = () => {
+            setTimeout(() => { renderBoard(); }, 500); // Gives WASM a fraction of a second to boot up safely
+        };
+    </script>
+</body>
+</html>
